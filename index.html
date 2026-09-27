@@ -472,6 +472,24 @@
       cursor: pointer;
     }
 
+    .source-footer {
+      margin-top: 30px;
+      text-align: center;
+    }
+    .source-footer a {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      text-decoration: underline;
+      text-decoration-color: color-mix(in srgb, var(--muted) 55%, transparent);
+      text-underline-offset: 4px;
+    }
+    .source-footer a:hover,
+    .source-footer a:focus-visible {
+      color: var(--accent-strong);
+      text-decoration-color: currentColor;
+    }
+
     .loading-dot {
       width: 15px;
       height: 15px;
@@ -610,6 +628,9 @@
         </div>
       </section>
     </div>
+    <footer class="source-footer">
+      <a href="https://github.com/Bismark57/pdf-shrinker" target="_blank" rel="noopener noreferrer">View source on GitHub</a>
+    </footer>
   </main>
 
   <script>
@@ -844,6 +865,51 @@
         return await pdfDoc.save({ useObjectStreams: true, addDefaultPage: false, updateFieldAppearances: false });
       }
 
+      function isIOSDevice() {
+        return /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+          (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+      }
+
+      async function downloadOutput(event) {
+        event.preventDefault();
+        if (!state.outputUrl) return;
+
+        var objectUrl = state.outputUrl;
+        var filename = el.downloadLink.getAttribute('download') || 'document-shrunk.pdf';
+
+        if (isIOSDevice()) {
+          try {
+            var response = await fetch(objectUrl);
+            var blob = await response.blob();
+            var file = new File([blob], filename, { type: 'application/pdf' });
+            var shareData = { files: [file] };
+
+            if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+              try {
+                await navigator.share(shareData);
+              } catch (shareError) {
+                if (shareError && shareError.name === 'AbortError') return;
+                window.open(objectUrl, '_blank');
+              }
+              return;
+            }
+          } catch (fetchError) {
+            window.open(objectUrl, '_blank');
+            return;
+          }
+
+          window.open(objectUrl, '_blank');
+          return;
+        }
+
+        var link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        window.setTimeout(function () { link.remove(); }, 100);
+      }
+
       async function compress() {
         if (!state.file || state.busy || !state.pageTotal) return;
         if (!librariesReady()) {
@@ -920,6 +986,7 @@
       el.removeFile.addEventListener('click', reset);
       el.againBtn.addEventListener('click', reset);
       el.compressBtn.addEventListener('click', compress);
+      el.downloadLink.addEventListener('click', downloadOutput);
       el.quality.addEventListener('input', updateQuality);
       document.querySelectorAll('input[name="mode"]').forEach(function (radio) { radio.addEventListener('change', updateMode); });
       window.addEventListener('beforeunload', revokeOutput);
